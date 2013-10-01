@@ -1,0 +1,17 @@
+{
+    "name": "XDM-Gks",
+    "info_url": "https://github.com/Torf/XDM-Gks",
+    "plugins": {
+        "me.torf.gks": [
+            {
+                "major_version": 0,
+                "minor_version": 1,
+                "format": "zip",
+                "desc": "Gks torrent indexer",
+                "name": "GKS",
+                "type": "Indexer",
+                "download_url": "https://github.com/Torf/XDM-Gks/archive/master.zip"
+            }
+        ]
+    }
+} 
