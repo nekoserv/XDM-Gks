@@ -91,8 +91,9 @@ class GKS(Indexer):
         payload = {'ah': authkey,
            'q': 'testing_apikey'
            }
+        headers = {'Accept-Encoding': 'gzip,deflate'}
         try:
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
+            r = requests.get(self._baseUrlRss(), params=payload, verify=False, headers=headers)
         except:
             log.error("Error during test connection on $s" % self)
             return (False, {}, 'Please check host!')
@@ -112,18 +113,6 @@ class GKS(Indexer):
 
         return (True, {}, 'Connection made!')
     _testConnection.args = ['authkey']
-
-
-    def getConfigHtml(self):
-        return """<script>
-                function newsznab_""" + self.instance + """_spreadCategories(data){
-                  console.log(data);
-                  $.each(data, function(k,i){
-                      $('#""" + helper.idSafe(self.name) + """ input[name$="'+k+'"]').val(i)
-                  });
-                };
-                </script>
-        """
 
     config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
                    'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}},
