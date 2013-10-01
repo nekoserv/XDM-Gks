@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.4"
+    version = "0.5"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -86,9 +86,10 @@ class GKS(Indexer):
                 d.external_id = ex_id
                 d.type = 'de.lad1337.torrent'
                 downloads.append(d)
+                log.info("torrent link : %s" % d.url)
             
         if hasItem == False:
-            log.info("No search results for %s" % term)
+            log.info("No search results for %s" % terms)
                     
         return downloads
 
@@ -113,7 +114,7 @@ class GKS(Indexer):
         if match:
             return match.group(1)
         else:
-            log.error("Can't find id of the torrent in %s" % uploadLink)
+            log.error("Can't find the torrent id in %s" % uploadLink)
         return ''
     
     def _getTorrentUrl(self, torrentId):
