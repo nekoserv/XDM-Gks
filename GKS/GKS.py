@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.10"
+    version = "0.101"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -61,42 +61,42 @@ class GKS(Indexer):
         else:
             trackerCategories.append(cat)
         
-        payload = {'category': '16'}
-
+        hasItem = False
         downloads = []
         terms = '+'.join(element.getSearchTerms())
         
-        payload['q'] = terms
         
-        r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-        log.info("Gks final search for terms %s url %s" % (terms, r.url))
-        
-        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-        parsedXML = parseString(response)
-        
-        channel = parsedXML.getElementsByTagName('channel')[0]
-        items = channel.getElementsByTagName('item')
-        
-        hasItem = False
-        
-        for item in items:
-            title = self._get_xml_text(item.getElementsByTagName('title')[0])
-            url = self._get_xml_text(item.getElementsByTagName('link')[0])
-            ex_id = self._getTorrentId(url)
+        for trackerCategory in trackerCategories:
+            payload = {'category': trackerCategory, 
+                        'q' : terms }
             
-            if not ex_id == '':
-                log.info("%s found on Gks.gs: %s" % (element.type, title))
-                hasItem = True
-                d = Download()
-                d.url = self._getTorrentUrl(ex_id)
-                d.name = title
-                d.element = element
-                d.size = 0
-                d.external_id = ex_id
-                d.type = 'de.lad1337.torrent'
-                downloads.append(d)
-                log.info("torrent link : %s" % d.url)
+            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
+            log.info("Gks final search for terms %s url %s" % (terms, r.url))
             
+            response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
+            parsedXML = parseString(response)
+            
+            channel = parsedXML.getElementsByTagName('channel')[0]
+            items = channel.getElementsByTagName('item')
+            
+            for item in items:
+                title = self._get_xml_text(item.getElementsByTagName('title')[0])
+                url = self._get_xml_text(item.getElementsByTagName('link')[0])
+                ex_id = self._getTorrentId(url)
+                
+                if not ex_id == '':
+                    log.info("%s found on Gks.gs: %s" % (element.type, title))
+                    hasItem = True
+                    d = Download()
+                    d.url = self._getTorrentUrl(ex_id)
+                    d.name = title
+                    d.element = element
+                    d.size = 0
+                    d.external_id = ex_id
+                    d.type = 'de.lad1337.torrent'
+                    downloads.append(d)
+                    log.info("torrent link : %s" % d.url)
+                
         if hasItem == False:
             log.info("No search results for %s" % terms)
                     
@@ -151,6 +151,6 @@ class GKS(Indexer):
         """
     
     config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {{'gather_gategories': {'action': _gatherCategories, 'name': 'Get categories'},
+                   'plugin_buttons': {'gather_gategories': {'action': _gatherCategories, 'name': 'Get categories'},
                                       'test_connection': {'action': _testConnection, 'name': 'Test connection'}}
                   }
