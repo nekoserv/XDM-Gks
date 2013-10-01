@@ -53,7 +53,7 @@ class GKS(Indexer):
             payload['q'] = term
             
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-            log("Gks final search for term %s url %s" % (term, r.url))
+            log.info("Gks final search for term %s url %s" % (term, r.url))
             
             response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
             parsedXML = parseString(response)
@@ -63,6 +63,7 @@ class GKS(Indexer):
             description = channel.getElementsByTagName('description')[0]
             description_text = self._get_xml_text(description).lower()
             
+                       
             if "user can't be found" in description_text:
                 log.error("Gks invalid digest, check your config")
                 return downloads
@@ -71,12 +72,14 @@ class GKS(Indexer):
                 return downloads
             else :
                 items = channel.getElementsByTagName('item')
+                hasItem = False
                 for item in items:
+                    hasItem = True
                     title = self._get_xml_text(item.getElementsByTagName('title')[0])
                     url = self._get_xml_text(item.getElementsByTagName('link')[0])
                     ex_id = self._get_xml_text(item.getElementsByTagName('guid')[0])
                 
-                    log("%s found on Gks.gs: %s" % (element.type, title))
+                    log.info("%s found on Gks.gs: %s" % (element.type, title))
                     d = Download()
                     d.url = url
                     d.name = title
@@ -85,6 +88,8 @@ class GKS(Indexer):
                     d.external_id = ex_id
                     d.type = 'de.lad1337.torrent'
                     downloads.append(d)
+                if hasItem == False:
+                    log.info("No search results for %s" % term)
                     
         return downloads
 
