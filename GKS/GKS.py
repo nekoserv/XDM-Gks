@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.5"
+    version = "0.10"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -52,6 +52,15 @@ class GKS(Indexer):
         return "https://gks.gs/rss/search/"
 
     def searchForElement(self, element):
+        trackerCategories = []
+        
+        category = self._getCategory(element)
+        if ',' in category:
+            for cat in category.split(','):
+                trackerCategories.append(cat)
+        else:
+            trackerCategories.append(cat)
+        
         payload = {'category': '16'}
 
         downloads = []
@@ -120,5 +129,28 @@ class GKS(Indexer):
     def _getTorrentUrl(self, torrentId):
         return "%s?k=%s&id=%s" % (self._baseUrlTorrent(), self.c.authkey, torrentId)
     
+    def _gatherCategories(self):
+        data = {}
+        data["Movies"] = "16,17,18"
+        
+        dataWrapper = {'callFunction': 'gks_' + self.instance + '_spreadCategories',
+                       'functionData': data}
+
+        return (True, dataWrapper, '%s categories loaded' % len(data))
+    _gatherCategories.args = []
+    
+    def getConfigHtml(self):
+        return """<script>
+                function gks_""" + self.instance + """_spreadCategories(data){
+                  console.log(data);
+                  $.each(data, function(k,i){
+                      $('#""" + helper.idSafe(self.name) + """ input[name$="'+k+'"]').val(i)
+                  });
+                };
+                </script>
+        """
+    
     config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}}}
+                   'plugin_buttons': {{'gather_gategories': {'action': _gatherCategories, 'name': 'Get categories'},
+                                      'test_connection': {'action': _testConnection, 'name': 'Test connection'}}
+                  }
