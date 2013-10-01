@@ -27,10 +27,10 @@ from xml.dom.minidom import Node
 import unicodedata
 
 class GKS(Indexer):
-    version = "0.2"
+    version = "0.3"
     identifier = "me.torf.gks"
-    _config = {'enabled': True
-               }
+    _config = {'enabled': True }
+    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.'}
 
     types = ['de.lad1337.torrent']
 
@@ -45,7 +45,7 @@ class GKS(Indexer):
         return "https://gks.gs/rss/search/"
 
     def searchForElement(self, element):
-        payload = {'category': self._getCategory(element)}
+        payload = {'category': '16'}
 
         downloads = []
         terms = element.getSearchTerms()
@@ -59,40 +59,30 @@ class GKS(Indexer):
             parsedXML = parseString(response)
             
             channel = parsedXML.getElementsByTagName('channel')[0]
+            items = channel.getElementsByTagName('item')
             
-            description = channel.getElementsByTagName('description')[0]
-            description_text = self._get_xml_text(description).lower()
+            hasItem = False
             
-                       
-            if "user can't be found" in description_text:
-                log.error("Gks invalid digest, check your config")
-                return downloads
-            elif "invalid hash" in description_text:
-                log.error("Gks invalid hash, check your config")
-                return downloads
-            else :
-                items = channel.getElementsByTagName('item')
-                hasItem = False
-                for item in items:
-                    hasItem = True
-                    title = self._get_xml_text(item.getElementsByTagName('title')[0])
-                    url = self._get_xml_text(item.getElementsByTagName('link')[0])
-                    ex_id = self._get_xml_text(item.getElementsByTagName('guid')[0])
+            for item in items:
+                hasItem = True
+                title = self._get_xml_text(item.getElementsByTagName('title')[0])
+                url = self._get_xml_text(item.getElementsByTagName('link')[0])
+                ex_id = self._get_xml_text(item.getElementsByTagName('guid')[0])
+            
+                log.info("%s found on Gks.gs: %s" % (element.type, title))
+                d = Download()
+                d.url = url
+                d.name = title
+                d.element = element
+                d.size = 0
+                d.external_id = ex_id
+                d.type = 'de.lad1337.torrent'
+                downloads.append(d)
                 
-                    log.info("%s found on Gks.gs: %s" % (element.type, title))
-                    d = Download()
-                    d.url = url
-                    d.name = title
-                    d.element = element
-                    d.size = 0
-                    d.external_id = ex_id
-                    d.type = 'de.lad1337.torrent'
-                    downloads.append(d)
-                if hasItem == False:
-                    log.info("No search results for %s" % term)
+            if hasItem == False:
+                log.info("No search results for %s" % term)
                     
         return downloads
 
 
 
-    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.'}
