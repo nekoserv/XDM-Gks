@@ -1,5 +1,5 @@
-# Author: Dennis Lutter <lad1337@gmail.com>
-# URL: https://github.com/lad1337/XDM
+# Author: Torf
+# URL: https://github.com/torf/XDM-Gks
 #
 # This file is part of XDM: eXtentable Download Manager.
 #
@@ -23,9 +23,11 @@ from xdm.plugins import *
 from lib import requests
 from xdm import helper
 from xml.dom.minidom import parseString
+from xml.dom.minidom import Node
+import unicodedata
 
 class GKS(Indexer):
-    version = "0.1"
+    version = "0.2"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True
@@ -33,7 +35,7 @@ class GKS(Indexer):
 
     types = ['de.lad1337.torrent']
 
-    def _get_xml_text(node):
+    def _get_xml_text(self, node):
         text = ""
         for child_node in node.childNodes:
             if child_node.nodeType in (Node.CDATA_SECTION_NODE, Node.TEXT_NODE):
@@ -52,9 +54,11 @@ class GKS(Indexer):
         terms = element.getSearchTerms()
         for term in terms:
             payload['q'] = term
+            
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
             log("Gks final search for term %s url %s" % (term, r.url), censor={self.c.authkey: 'authkey'})
-            response = r.text
+            
+            response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
             parsedXML = parseString(response)
             
             channel = parsedXML.getElementsByTagName('channel')[0]
@@ -63,10 +67,10 @@ class GKS(Indexer):
             description_text = self._get_xml_text(description).lower()
             
             if "user can't be found" in description_text:
-                log("Gks invalid digest, check your config")
+                log.error("Gks invalid digest, check your config")
                 return downloads
             elif "invalid hash" in description_text:
-                log("Gks invalid hash, check your config")
+                log.error("Gks invalid hash, check your config")
                 return downloads
             else :
                 items = channel.getElementsByTagName('item')
@@ -91,14 +95,14 @@ class GKS(Indexer):
         payload = {'ah': authkey,
            'q': 'testing_apikey'
            }
-        headers = {'Accept-Encoding': 'gzip,deflate'}
+        
         try:
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False, headers=headers)
+            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
         except:
             log.error("Error during test connection on $s" % self)
             return (False, {}, 'Please check host!')
         
-        response = r.text
+        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
         parsedXML = parseString(response)
         
         channel = parsedXML.getElementsByTagName('channel')[0]
