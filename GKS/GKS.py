@@ -32,8 +32,6 @@ class GKS(Indexer):
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
-    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}}}
 
     types = ['de.lad1337.torrent']
 
@@ -120,3 +118,6 @@ class GKS(Indexer):
     
     def _getTorrentUrl(self, torrentId):
         return "%s?k=%s&id=%s" % (self._baseUrlTorrent(), self.c.authkey, torrentId)
+    
+    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
+                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}}}
