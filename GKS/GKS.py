@@ -29,8 +29,7 @@ import unicodedata
 class GKS(Indexer):
     version = "0.2"
     identifier = "me.torf.gks"
-    _config = {'authkey': '',
-               'enabled': True
+    _config = {'enabled': True
                }
 
     types = ['de.lad1337.torrent']
@@ -46,9 +45,7 @@ class GKS(Indexer):
         return "https://gks.gs/rss/search/"
 
     def searchForElement(self, element):
-        payload = {'ah': self.c.authkey,
-                   'category': '29'
-                   }
+        payload = {'category': self._getCategory(element)}
 
         downloads = []
         terms = element.getSearchTerms()
@@ -56,7 +53,7 @@ class GKS(Indexer):
             payload['q'] = term
             
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-            log("Gks final search for term %s url %s" % (term, r.url), censor={self.c.authkey: 'authkey'})
+            log("Gks final search for term %s url %s" % (term, r.url))
             
             response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
             parsedXML = parseString(response)
@@ -91,33 +88,6 @@ class GKS(Indexer):
                     
         return downloads
 
-    def _testConnection(self, authkey):
-        payload = {'ah': authkey,
-           'q': 'testing_apikey'
-           }
-        
-        try:
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-        except:
-            log.error("Error during test connection on $s" % self)
-            return (False, {}, 'Please check host!')
-        
-        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-        parsedXML = parseString(response)
-        
-        channel = parsedXML.getElementsByTagName('channel')[0]
-        
-        description = channel.getElementsByTagName('description')[0]
-        description_text = self._get_xml_text(description).lower()
-        
-        if "user can't be found" in description_text:
-            return (False, {}, 'Gks invalid digest, Wrong AuthKey !')
-        elif "invalid hash" in description_text:
-            return (False, {}, 'Gks invalid hash, Wrong AuthKey !')
 
-        return (True, {}, 'Connection made!')
-    _testConnection.args = ['authkey']
 
-    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}},
-                   }
+    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.'}
