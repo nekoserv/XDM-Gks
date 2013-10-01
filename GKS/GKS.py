@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.101"
+    version = "0.11"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -42,12 +42,14 @@ class GKS(Indexer):
                 text += child_node.data
         return text.strip()
 
+    def _baseUrlPrivateGet(self):
+        return "https://gks.gs/private-get/"
+
     def _baseUrlMobile(self):
         return "https://gks.gs/mob/"
 
-    def _baseUrlTorrent(self):
-        return self._baseUrlMobile() + "gettorrents.php"
-
+    # TODO : use https://gks.gs/rdirect.php?type=category&cat=3&ak={AUTHKEY}
+    # instead. (in order to get file size/seeders/leechers)
     def _baseUrlRss(self):
         return "https://gks.gs/rss/search/"
 
@@ -105,6 +107,7 @@ class GKS(Indexer):
     def _testConnection(self, authkey):
         payload = {'k': authkey }
         
+        # TODO: replace mob by RSS
         try:
             r = requests.get(self._baseUrlMobile(), params=payload, verify=False)
         except:
@@ -127,11 +130,35 @@ class GKS(Indexer):
         return ''
     
     def _getTorrentUrl(self, torrentId):
-        return "%s?k=%s&id=%s" % (self._baseUrlTorrent(), self.c.authkey, torrentId)
+        return "%s/%s/%s" % (self._baseUrlPrivateGet(), torrentId, self.c.authkey )
     
     def _gatherCategories(self):
         data = {}
-        data["Movies"] = "16,17,18"
+        # 5:DVDRip/BDRip, 6:DVDRip/BDRip VOSTFR, 15:HD 720p, 
+        # 16:HD 1080p, 17:Full BluRay, 19:DVDR, 21:Anime
+        data["Movies"] = "5,6,15,16,17,19,21" 
+        
+        # 24:eBooks
+        data["Books"] = "24"        
+        
+        # 29:PC Games, 30:Nintendo DS/3DS, 31:Wii, 
+        # 32:Xbox 360, 34:PSP, 38:PS3
+        data["Games"] = "29,30,31,32,34,38"
+        
+        # 29:PC Games
+        data["PC"] = "29"
+        # 38:PS3
+        data["PS3"] = "38"
+        # 31:Wii
+        data["Wii"] = "31"
+        # 31:Wii
+        data["WiiU"] = "31"
+        # 32:Xbox 360
+        data["Xbox360"] = "32"
+        
+        # 39 : Flac
+        data["Music"] = "39"
+        
         
         dataWrapper = {'callFunction': 'gks_' + self.instance + '_spreadCategories',
                        'functionData': data}
