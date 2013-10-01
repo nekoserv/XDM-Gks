@@ -25,12 +25,15 @@ from xdm import helper
 from xml.dom.minidom import parseString
 from xml.dom.minidom import Node
 import unicodedata
+import re
 
 class GKS(Indexer):
-    version = "0.3"
+    version = "0.4"
     identifier = "me.torf.gks"
-    _config = {'enabled': True }
-    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.'}
+    _config = {'authkey': '',
+               'enabled': True }
+    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
+                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}}}
 
     types = ['de.lad1337.torrent']
 
@@ -41,6 +44,12 @@ class GKS(Indexer):
                 text += child_node.data
         return text.strip()
 
+    def _baseUrlMobile(self):
+        return "https://gks.gs/mob/"
+
+    def _baseUrlTorrent(self):
+        return self._baseUrlMobile() + "gettorrents.php"
+
     def _baseUrlRss(self):
         return "https://gks.gs/rss/search/"
 
@@ -48,41 +57,66 @@ class GKS(Indexer):
         payload = {'category': '16'}
 
         downloads = []
-        terms = element.getSearchTerms()
-        for term in terms:
-            payload['q'] = term
+        terms = '+'.join(element.getSearchTerms())
+        
+        payload['q'] = terms
+        
+        r = requests.get(self._baseUrlRss(), params=payload, verify=False)
+        log.info("Gks final search for terms %s url %s" % (terms, r.url))
+        
+        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
+        parsedXML = parseString(response)
+        
+        channel = parsedXML.getElementsByTagName('channel')[0]
+        items = channel.getElementsByTagName('item')
+        
+        hasItem = False
+        
+        for item in items:
+            title = self._get_xml_text(item.getElementsByTagName('title')[0])
+            url = self._get_xml_text(item.getElementsByTagName('link')[0])
+            ex_id = self._getTorrentId(url)
             
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-            log.info("Gks final search for term %s url %s" % (term, r.url))
-            
-            response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-            parsedXML = parseString(response)
-            
-            channel = parsedXML.getElementsByTagName('channel')[0]
-            items = channel.getElementsByTagName('item')
-            
-            hasItem = False
-            
-            for item in items:
-                hasItem = True
-                title = self._get_xml_text(item.getElementsByTagName('title')[0])
-                url = self._get_xml_text(item.getElementsByTagName('link')[0])
-                ex_id = self._get_xml_text(item.getElementsByTagName('guid')[0])
-            
+            if not ex_id == '':
                 log.info("%s found on Gks.gs: %s" % (element.type, title))
+                hasItem = True
                 d = Download()
-                d.url = url
+                d.url = self._getTorrentUrl(ex_id)
                 d.name = title
                 d.element = element
                 d.size = 0
                 d.external_id = ex_id
                 d.type = 'de.lad1337.torrent'
                 downloads.append(d)
-                
-            if hasItem == False:
-                log.info("No search results for %s" % term)
+            
+        if hasItem == False:
+            log.info("No search results for %s" % term)
                     
         return downloads
 
+    def _testConnection(self, authkey):
+        payload = {'k': authkey }
+        
+        try:
+            r = requests.get(self._baseUrlMobile(), params=payload, verify=False)
+        except:
+            log.error("Error during test connection on $s" % self)
+            return (False, {}, 'Please check network!')
+        
+        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
+        if response == "Bad Key":
+            return (False, {}, 'Wrong AuthKey !')
+        
+        return (True, {}, 'Connection made!')
+    _testConnection.args = ['authkey']
 
-
+    def _getTorrentId(self, uploadLink):
+        match = re.search(r'torrent/(\d+)/', uploadLink)
+        if match:
+            return match.group(1)
+        else:
+            log.error("Can't find id of the torrent in %s" % uploadLink)
+        return ''
+    
+    def _getTorrentUrl(self, torrentId):
+        return "%s?k=%s&id=%s" % (self._baseUrlTorrent(), self.c.authkey, torrentId)
