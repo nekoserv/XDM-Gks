@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.1142"
+    version = "0.1"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -42,8 +42,6 @@ class GKS(Indexer):
                 text += child_node.data
         return text.strip()
 
-    # TODO : use https://gks.gs/rdirect.php?type=category&cat=3&ak={AUTHKEY}
-    # instead. (in order to get file size/seeders/leechers)
     def _baseUrlRss(self):
         return "https://gks.gs/rdirect.php"
 
@@ -98,10 +96,7 @@ class GKS(Indexer):
                 d.size = self._getTorrentSize(description)
                 d.external_id = self._getTorrentExternalId(url)
                 d.type = 'de.lad1337.torrent'
-                
-                log.info("description : %s" % description)
-                log.info("size / id : %s / %s" % (d.size, d.external_id))
-                #downloads.append(d)
+                downloads.append(d)
                 
         if hasItem == False:
             log.info("No search results for %s" % terms)
