@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.112"
+    version = "0.113"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -90,7 +90,7 @@ class GKS(Indexer):
                 url = self._get_xml_text(item.getElementsByTagName('link')[0])
                 
                 log.info("%s found on Gks.gs: %s" % (element.type, title))
-                log.info("description : %s" % url)
+                log.info("description : %s" % description)
 
                 d = Download()
                 d.url = url
