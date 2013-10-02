@@ -112,18 +112,20 @@ class GKS(Indexer):
         return uploadLink
 
     def _getTorrentSize(self, description):
-        match = re.search(r'Taille : (\d+\.\d+) ([TGM])o', description)
+        match = re.search(r'Taille : (\d+\.\d+) ([TGMK])o', description)
         if match:
             size = float(match.group(1))
             if match.group(2) == "T":
-                size = size * 1024 * 1024
+                size = size * 1024 * 1024 * 1024
             elif match.group(2) == "G":
+                size = size * 1024 * 1024
+            elif match.group(2) == "M":
                 size = size * 1024
             
-            return size
+            return int(size * 1024) #result in bytes
         else:
             log.error("Can't find the torrent size in %s" % description)
-        return 1
+        return 0
 
     def _testConnection(self, authkey):
         payload = { 'ak' : self.c.authkey }
