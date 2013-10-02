@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.114"
+    version = "0.1141"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -100,7 +100,7 @@ class GKS(Indexer):
                 d.type = 'de.lad1337.torrent'
                 
                 log.info("description : %s" % description)
-                log.info("size / id : %s / %s" % {d.size, d.external_id})
+                log.info("size / id : %s / %s" % (d.size, d.external_id))
                 #downloads.append(d)
                 
         if hasItem == False:
