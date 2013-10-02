@@ -49,11 +49,12 @@ class GKS(Indexer):
         trackerCategories = []
         
         category = self._getCategory(element)
-        if ',' in category:
-            for cat in category.split(','):
-                trackerCategories.append(cat)
-        else:
-            trackerCategories.append(cat)
+        # category can be None
+        if category is None:
+            logger.warning("No category found for %s" % element)
+            return []
+        # split into list and remove whitespcae
+        trackerCategories = [cat.strip() for cat in category.split(',')]
         
         hasItem = False
         downloads = []
