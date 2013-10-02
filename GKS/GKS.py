@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.1141"
+    version = "0.1142"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -96,7 +96,7 @@ class GKS(Indexer):
                 d.name = title
                 d.element = element
                 d.size = self._getTorrentSize(description)
-                d.external_id = _getTorrentExternalId(url)
+                d.external_id = self._getTorrentExternalId(url)
                 d.type = 'de.lad1337.torrent'
                 
                 log.info("description : %s" % description)
