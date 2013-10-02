@@ -25,13 +25,13 @@ from xdm import helper
 from xml.dom.minidom import parseString
 from xml.dom.minidom import Node
 import unicodedata
+import re
 
 class GKS(Indexer):
-    version = "0.2"
+    version = "0.1"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
-               'enabled': True
-               }
+               'enabled': True }
 
     types = ['de.lad1337.torrent']
 
@@ -43,81 +43,152 @@ class GKS(Indexer):
         return text.strip()
 
     def _baseUrlRss(self):
-        return "https://gks.gs/rss/search/"
+        return "https://gks.gs/rdirect.php"
 
     def searchForElement(self, element):
-        payload = {'ah': self.c.authkey,
-                   'category': '29'
-                   }
-
+        trackerCategories = []
+        
+        category = self._getCategory(element)
+        if ',' in category:
+            for cat in category.split(','):
+                trackerCategories.append(cat)
+        else:
+            trackerCategories.append(cat)
+        
+        hasItem = False
         downloads = []
-        terms = element.getSearchTerms()
-        for term in terms:
-            payload['q'] = term
+        terms = '+'.join(element.getSearchTerms())
+        
+        
+        for trackerCategory in trackerCategories:
+            payload = { 'ak' : self.c.authkey,
+                        'type' : 'category',
+                        'cat': trackerCategory, 
+                        'q' : terms }
             
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-            log("Gks final search for term %s url %s" % (term, r.url), censor={self.c.authkey: 'authkey'})
+            log.info("Gks final search for terms %s url %s" % (terms, r.url))
             
             response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
+
+            if response == "Bad Key":
+                log.error("Invalide Gks authkey.")
+                return downloads
+
             parsedXML = parseString(response)
             
             channel = parsedXML.getElementsByTagName('channel')[0]
+            items = channel.getElementsByTagName('item')
             
-            description = channel.getElementsByTagName('description')[0]
-            description_text = self._get_xml_text(description).lower()
-            
-            if "user can't be found" in description_text:
-                log.error("Gks invalid digest, check your config")
-                return downloads
-            elif "invalid hash" in description_text:
-                log.error("Gks invalid hash, check your config")
-                return downloads
-            else :
-                items = channel.getElementsByTagName('item')
-                for item in items:
-                    title = self._get_xml_text(item.getElementsByTagName('title')[0])
-                    url = self._get_xml_text(item.getElementsByTagName('link')[0])
-                    ex_id = self._get_xml_text(item.getElementsByTagName('guid')[0])
+            for item in items:
+                hasItem = True
+
+                title = self._get_xml_text(item.getElementsByTagName('title')[0])
+                description = self._get_xml_text(item.getElementsByTagName('description')[0])
+                url = self._get_xml_text(item.getElementsByTagName('link')[0])
                 
-                    log("%s found on Gks.gs: %s" % (element.type, title))
-                    d = Download()
-                    d.url = url
-                    d.name = title
-                    d.element = element
-                    d.size = 0
-                    d.external_id = ex_id
-                    d.type = 'de.lad1337.torrent'
-                    downloads.append(d)
+                log.info("%s found on Gks.gs: %s" % (element.type, title))
+                
+                d = Download()
+                d.url = url
+                d.name = title
+                d.element = element
+                d.size = self._getTorrentSize(description)
+                d.external_id = self._getTorrentExternalId(url)
+                d.type = 'de.lad1337.torrent'
+                downloads.append(d)
+                
+        if hasItem == False:
+            log.info("No search results for %s" % terms)
                     
         return downloads
 
+    def _getTorrentExternalId(self, uploadLink):
+        match = re.search(r'private-get/(\d+)/', uploadLink)
+        if match:
+            return match.group(1)
+        else:
+            log.error("Can't find the torrent id in %s" % uploadLink)
+        return uploadLink
+
+    def _getTorrentSize(self, description):
+        match = re.search(r'Taille : (\d+\.\d+) ([TGMK])o', description)
+        if match:
+            size = float(match.group(1))
+            if match.group(2) == "T":
+                size = size * 1024 * 1024 * 1024
+            elif match.group(2) == "G":
+                size = size * 1024 * 1024
+            elif match.group(2) == "M":
+                size = size * 1024
+            
+            return int(size * 1024) #result in bytes
+        else:
+            log.error("Can't find the torrent size in %s" % description)
+        return 0
+
     def _testConnection(self, authkey):
-        payload = {'ah': authkey,
-           'q': 'testing_apikey'
-           }
+        payload = { 'ak' : self.c.authkey }
         
         try:
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
         except:
             log.error("Error during test connection on $s" % self)
-            return (False, {}, 'Please check host!')
+            return (False, {}, 'Please check network!')
         
         response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-        parsedXML = parseString(response)
+        if response == "Bad Key":
+            return (False, {}, 'Wrong AuthKey !')
         
-        channel = parsedXML.getElementsByTagName('channel')[0]
-        
-        description = channel.getElementsByTagName('description')[0]
-        description_text = self._get_xml_text(description).lower()
-        
-        if "user can't be found" in description_text:
-            return (False, {}, 'Gks invalid digest, Wrong AuthKey !')
-        elif "invalid hash" in description_text:
-            return (False, {}, 'Gks invalid hash, Wrong AuthKey !')
-
         return (True, {}, 'Connection made!')
     _testConnection.args = ['authkey']
+    
+    def _gatherCategories(self):
+        data = {}
+        # 5:DVDRip/BDRip, 6:DVDRip/BDRip VOSTFR, 15:HD 720p, 
+        # 16:HD 1080p, 17:Full BluRay, 19:DVDR, 21:Anime
+        data["Movies"] = "5,6,15,16,17,19,21" 
+        
+        # 24:eBooks
+        data["Books"] = "24"        
+        
+        # 29:PC Games, 30:Nintendo DS/3DS, 31:Wii, 
+        # 32:Xbox 360, 34:PSP, 38:PS3
+        data["Games"] = "29,30,31,32,34,38"
+        
+        # 29:PC Games
+        data["PC"] = "29"
+        # 38:PS3
+        data["PS3"] = "38"
+        # 31:Wii
+        data["Wii"] = "31"
+        # 31:Wii
+        data["WiiU"] = "31"
+        # 32:Xbox 360
+        data["Xbox360"] = "32"
+        
+        # 39 : Flac
+        data["Music"] = "39"
+        
+        
+        dataWrapper = {'callFunction': 'gks_' + self.instance + '_spreadCategories',
+                       'functionData': data}
 
+        return (True, dataWrapper, '%s categories loaded' % len(data))
+    _gatherCategories.args = []
+    
+    def getConfigHtml(self):
+        return """<script>
+                function gks_""" + self.instance + """_spreadCategories(data){
+                  console.log(data);
+                  $.each(data, function(k,i){
+                      $('#""" + helper.idSafe(self.name) + """ input[name$="'+k+'"]').val(i)
+                  });
+                };
+                </script>
+        """
+    
     config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {'test_connection': {'action': _testConnection, 'name': 'Test connection'}},
-                   }
+                   'plugin_buttons': {'gather_gategories': {'action': _gatherCategories, 'name': 'Get categories'},
+                                      'test_connection': {'action': _testConnection, 'name': 'Test connection'}}
+                  }
