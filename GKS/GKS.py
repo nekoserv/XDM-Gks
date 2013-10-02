@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.113"
+    version = "0.114"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -90,21 +90,45 @@ class GKS(Indexer):
                 url = self._get_xml_text(item.getElementsByTagName('link')[0])
                 
                 log.info("%s found on Gks.gs: %s" % (element.type, title))
-                log.info("description : %s" % description)
-
+                
                 d = Download()
                 d.url = url
                 d.name = title
                 d.element = element
-                d.size = 0
-                d.external_id = ex_id
+                d.size = self._getTorrentSize(description)
+                d.external_id = _getTorrentExternalId(url)
                 d.type = 'de.lad1337.torrent'
+                
+                log.info("description : %s" % description)
+                log.info("size / id : %s / %s" % {d.size, d.external_id})
                 #downloads.append(d)
                 
         if hasItem == False:
             log.info("No search results for %s" % terms)
                     
         return downloads
+
+    def _getTorrentExternalId(self, uploadLink):
+        match = re.search(r'private-get/(\d+)/', uploadLink)
+        if match:
+            return match.group(1)
+        else:
+            log.error("Can't find the torrent id in %s" % uploadLink)
+        return uploadLink
+
+    def _getTorrentSize(self, description):
+        match = re.search(r'Taille : (\d+\.\d+) ([TGM])o', description)
+        if match:
+            size = float(match.group(1))
+            if match.group(2) == "T":
+                size = size * 1024 * 1024
+            elif match.group(2) == "G":
+                size = size * 1024
+            
+            return size
+        else:
+            log.error("Can't find the torrent size in %s" % description)
+        return 1
 
     def _testConnection(self, authkey):
         payload = { 'ak' : self.c.authkey }
