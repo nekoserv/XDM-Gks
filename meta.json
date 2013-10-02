@@ -10,7 +10,7 @@
                 "desc": "Gks torrent indexer",
                 "name": "GKS",
                 "type": "Indexer",
-                "download_url": "https://github.com/Torf/XDM-Gks/archive/dev.zip"
+                "download_url": "https://github.com/Torf/XDM-Gks/archive/master.zip"
             }
         ]
     }
