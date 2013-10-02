@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.11"
+    version = "0.112"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
@@ -41,12 +41,6 @@ class GKS(Indexer):
             if child_node.nodeType in (Node.CDATA_SECTION_NODE, Node.TEXT_NODE):
                 text += child_node.data
         return text.strip()
-
-    def _baseUrlPrivateGet(self):
-        return "https://gks.gs/private-get/"
-
-    def _baseUrlMobile(self):
-        return "https://gks.gs/mob/"
 
     # TODO : use https://gks.gs/rdirect.php?type=category&cat=3&ak={AUTHKEY}
     # instead. (in order to get file size/seeders/leechers)
@@ -70,7 +64,7 @@ class GKS(Indexer):
         
         for trackerCategory in trackerCategories:
             payload = { 'ak' : self.c.authkey,
-                        'type' : 'category'
+                        'type' : 'category',
                         'cat': trackerCategory, 
                         'q' : terms }
             
