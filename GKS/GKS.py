@@ -51,7 +51,7 @@ class GKS(Indexer):
     # TODO : use https://gks.gs/rdirect.php?type=category&cat=3&ak={AUTHKEY}
     # instead. (in order to get file size/seeders/leechers)
     def _baseUrlRss(self):
-        return "https://gks.gs/rss/search/"
+        return "https://gks.gs/rdirect.php"
 
     def searchForElement(self, element):
         trackerCategories = []
@@ -69,35 +69,43 @@ class GKS(Indexer):
         
         
         for trackerCategory in trackerCategories:
-            payload = {'category': trackerCategory, 
+            payload = { 'ak' : self.c.authkey,
+                        'type' : 'category'
+                        'cat': trackerCategory, 
                         'q' : terms }
             
             r = requests.get(self._baseUrlRss(), params=payload, verify=False)
             log.info("Gks final search for terms %s url %s" % (terms, r.url))
             
             response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
+
+            if response == "Bad Key":
+                log.error("Invalide Gks authkey.")
+                return downloads
+
             parsedXML = parseString(response)
             
             channel = parsedXML.getElementsByTagName('channel')[0]
             items = channel.getElementsByTagName('item')
             
             for item in items:
+                hasItem = True
+
                 title = self._get_xml_text(item.getElementsByTagName('title')[0])
+                description = self._get_xml_text(item.getElementsByTagName('description')[0])
                 url = self._get_xml_text(item.getElementsByTagName('link')[0])
-                ex_id = self._getTorrentId(url)
                 
-                if not ex_id == '':
-                    log.info("%s found on Gks.gs: %s" % (element.type, title))
-                    hasItem = True
-                    d = Download()
-                    d.url = self._getTorrentUrl(ex_id)
-                    d.name = title
-                    d.element = element
-                    d.size = 0
-                    d.external_id = ex_id
-                    d.type = 'de.lad1337.torrent'
-                    downloads.append(d)
-                    log.info("torrent link : %s" % d.url)
+                log.info("%s found on Gks.gs: %s" % (element.type, title))
+                log.info("description : %s" % url)
+
+                d = Download()
+                d.url = url
+                d.name = title
+                d.element = element
+                d.size = 0
+                d.external_id = ex_id
+                d.type = 'de.lad1337.torrent'
+                #downloads.append(d)
                 
         if hasItem == False:
             log.info("No search results for %s" % terms)
@@ -105,11 +113,10 @@ class GKS(Indexer):
         return downloads
 
     def _testConnection(self, authkey):
-        payload = {'k': authkey }
+        payload = { 'ak' : self.c.authkey }
         
-        # TODO: replace mob by RSS
         try:
-            r = requests.get(self._baseUrlMobile(), params=payload, verify=False)
+            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
         except:
             log.error("Error during test connection on $s" % self)
             return (False, {}, 'Please check network!')
@@ -120,17 +127,6 @@ class GKS(Indexer):
         
         return (True, {}, 'Connection made!')
     _testConnection.args = ['authkey']
-
-    def _getTorrentId(self, uploadLink):
-        match = re.search(r'torrent/(\d+)/', uploadLink)
-        if match:
-            return match.group(1)
-        else:
-            log.error("Can't find the torrent id in %s" % uploadLink)
-        return ''
-    
-    def _getTorrentUrl(self, torrentId):
-        return "%s/%s/%s" % (self._baseUrlPrivateGet(), torrentId, self.c.authkey )
     
     def _gatherCategories(self):
         data = {}
