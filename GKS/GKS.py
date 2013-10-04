@@ -28,7 +28,7 @@ import unicodedata
 import re
 
 class GKS(Indexer):
-    version = "0.1101"
+    version = "0.112"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
