@@ -55,7 +55,6 @@ class GKS(Indexer):
         else:
             trackerCategories.append(cat)
         
-        hasItem = False
         downloads = []
         terms = '+'.join(element.getSearchTerms())
         
@@ -81,28 +80,36 @@ class GKS(Indexer):
             items = channel.getElementsByTagName('item')
             
             for item in items:
-                hasItem = True
-
                 title = self._get_xml_text(item.getElementsByTagName('title')[0])
-                description = self._get_xml_text(item.getElementsByTagName('description')[0])
-                url = self._get_xml_text(item.getElementsByTagName('link')[0])
                 
-                log.info("%s found on Gks.gs: %s" % (element.type, title))
-                log.warning("%s file  : %s" % (title, url))
+                # Filters torrent that doesn't have the element name in its title
+                if self._isValidItem(element.name, title):
+                    # Gets the rest of data in XML
+                    description = self._get_xml_text(item.getElementsByTagName('description')[0])
+                    url = self._get_xml_text(item.getElementsByTagName('link')[0])
+
+                    log.info("%s found on Gks.gs: %s" % (element.type, title))
+                    
+                    # Add the torrent with correct size and external id.
+                    d = Download()
+                    d.url = url
+                    d.name = title
+                    d.element = element
+                    d.size = self._getTorrentSize(description)
+                    d.external_id = self._getTorrentExternalId(url)
+                    d.type = 'de.lad1337.torrent'
+                    downloads.append(d)
                 
-                d = Download()
-                d.url = url
-                d.name = title
-                d.element = element
-                d.size = self._getTorrentSize(description)
-                d.external_id = self._getTorrentExternalId(url)
-                d.type = 'de.lad1337.torrent'
-                downloads.append(d)
-                
-        if hasItem == False:
+        if len(downloads) > 0:
             log.info("No search results for %s" % terms)
                     
         return downloads
+
+    def _isValidItem(self, terms,  title):
+        for term in terms:
+            if not (term in title):
+                return False
+        return True
 
     def _getTorrentExternalId(self, uploadLink):
         match = re.search(r'private-get/(\d+)/', uploadLink)
