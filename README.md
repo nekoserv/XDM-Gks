@@ -8,5 +8,5 @@ It is currently in BETA but authkey safe.
 
 ## Install
 
-Add this repository to your repository list in XDM using this link :
-<pre>https://raw.github.com/Torf/XDM-Gks/master/meta.json</pre>
+Add this repository to your repositories list in XDM using this link :
+<pre>https://raw.github.com/Torf/XDM-Plugin-Repo/dev/meta.json</pre>
