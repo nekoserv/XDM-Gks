@@ -65,13 +65,9 @@ def getTorrentSize(description):
     return 0
 
 class GKS(Indexer):
-<<<<<<< .mine
-    version = "0.113"
-    identifier = "me.torf.gks"
-=======
     version = "0.11"
     identifier = "fr.torf.gks"
->>>>>>> .theirs
+
     _config = {'authkey': '',
                'enabled': True }
 
