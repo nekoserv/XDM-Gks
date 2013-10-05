@@ -27,127 +27,140 @@ from xml.dom.minidom import Node
 import unicodedata
 import re
 
+def get_xml_text(node):
+    text = ""
+    for child_node in node.childNodes:
+        if child_node.nodeType in (Node.CDATA_SECTION_NODE, Node.TEXT_NODE):
+            text += child_node.data
+    return text.strip()
+
+def isValidItem(terms,  title):
+    for term in terms.split(' '):
+        if not (term in title):
+            return False
+    return True
+
+def getTorrentExternalId(uploadLink):
+    match = re.search(r'private-get/(\d+)/', uploadLink)
+    if match:
+        return match.group(1)
+    else:
+        log.error("Can't find the torrent id in %s" % uploadLink)
+    return uploadLink
+
+def getTorrentSize(description):
+    match = re.search(r'Taille : (\d+\.\d+) ([TGMK])o', description)
+    if match:
+        size = float(match.group(1))
+        if match.group(2) == "T":
+            size = size * 1024 * 1024 * 1024
+        elif match.group(2) == "G":
+            size = size * 1024 * 1024
+        elif match.group(2) == "M":
+            size = size * 1024
+        
+        return int(size * 1024) #result in bytes
+    else:
+        log.error("Can't find the torrent size in %s" % description)
+    return 0
+
 class GKS(Indexer):
-    version = "0.112"
+    version = "0.113"
     identifier = "me.torf.gks"
     _config = {'authkey': '',
                'enabled': True }
 
     types = ['de.lad1337.torrent']
 
-    def _get_xml_text(self, node):
-        text = ""
-        for child_node in node.childNodes:
-            if child_node.nodeType in (Node.CDATA_SECTION_NODE, Node.TEXT_NODE):
-                text += child_node.data
-        return text.strip()
-
     def _baseUrlRss(self):
         return "https://gks.gs/rdirect.php"
 
-    def searchForElement(self, element):
-        trackerCategories = []
-        
-        category = self._getCategory(element)
-        if ',' in category:
-            for cat in category.split(','):
-                trackerCategories.append(cat)
-        else:
-            trackerCategories.append(cat)
+    def searchForElement(self, element):      
+        category = str(self._getCategory(element))
+        # category can be None
+        if category is None:
+            logger.warning("No category found for %s" % element)
+            return []
+        # split into list and remove whitespcae
+        trackerCategories = [cat.strip() for cat in category.split(',')]
         
         downloads = []
         terms = '+'.join(element.getSearchTerms())
         
-        
         for trackerCategory in trackerCategories:
-            payload = { 'ak' : self.c.authkey,
-                        'type' : 'category',
-                        'cat': trackerCategory, 
-                        'q' : terms }
-            
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-            log.info("Gks final search for terms %s url %s" % (terms, r.url))
-            
-            response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-
-            if response == "Bad Key":
-                log.error("Invalide Gks authkey.")
-                return downloads
-
-            parsedXML = parseString(response)
-            
-            channel = parsedXML.getElementsByTagName('channel')[0]
-            items = channel.getElementsByTagName('item')
-            
-            for item in items:
-                title = self._get_xml_text(item.getElementsByTagName('title')[0])
+            self._searchInCategory(trackerCategory, terms, element, downloads)
                 
-                # Filters torrent that doesn't have the element name in its title
-                if self._isValidItem(element.name, title):
-                    # Gets the rest of data in XML
-                    description = self._get_xml_text(item.getElementsByTagName('description')[0])
-                    url = self._get_xml_text(item.getElementsByTagName('link')[0])
-
-                    log.info("%s found on Gks.gs: %s" % (element.type, title))
-                    
-                    # Add the torrent with correct size and external id.
-                    d = Download()
-                    d.url = url
-                    d.name = title
-                    d.element = element
-                    d.size = self._getTorrentSize(description)
-                    d.external_id = self._getTorrentExternalId(url)
-                    d.type = 'de.lad1337.torrent'
-                    downloads.append(d)
-                
-        if len(downloads) > 0:
-            log.info("No search results for %s" % terms)
+        if len(downloads) == 0:
+            log.info("No search results for %s." % terms)
                     
         return downloads
 
-    def _isValidItem(self, terms,  title):
-        for term in terms:
-            if not (term in title):
-                return False
-        return True
-
-    def _getTorrentExternalId(self, uploadLink):
-        match = re.search(r'private-get/(\d+)/', uploadLink)
-        if match:
-            return match.group(1)
-        else:
-            log.error("Can't find the torrent id in %s" % uploadLink)
-        return uploadLink
-
-    def _getTorrentSize(self, description):
-        match = re.search(r'Taille : (\d+\.\d+) ([TGMK])o', description)
-        if match:
-            size = float(match.group(1))
-            if match.group(2) == "T":
-                size = size * 1024 * 1024 * 1024
-            elif match.group(2) == "G":
-                size = size * 1024 * 1024
-            elif match.group(2) == "M":
-                size = size * 1024
+    def _searchInCategory(self, category, terms, element, downloads):
+        payload = { 'ak' : self.c.authkey,
+                        'type' : 'search',
+                        'category': category, 
+                        'q' : terms,
+                        'order' : 'desc',
+                        'sort' : 'normal' }
             
-            return int(size * 1024) #result in bytes
-        else:
-            log.error("Can't find the torrent size in %s" % description)
-        return 0
+        webResult = self._getWebResponse(self._baseUrlRss(), payload)
+        
+        if webResult[0] == False:
+            log.error(webResult[1])
+            return
+
+
+        parsedXML = parseString(webResult[1])
+        
+        channel = parsedXML.getElementsByTagName('channel')[0]
+        items = channel.getElementsByTagName('item')
+        
+        log.info("Gks search for terms %s in category %s." % (terms, category))
+
+        for item in items:
+            title = get_xml_text(item.getElementsByTagName('title')[0])
+            
+            if title == "Aucun Resultat":
+                return
+            # Checks that the torrent title has as least the element name.
+            if isValidItem(element.getName(), title):
+                # Gets the rest of data in XML
+                description = get_xml_text(item.getElementsByTagName('description')[0])
+                url = get_xml_text(item.getElementsByTagName('link')[0])
+
+                log.info("%s found on Gks.gs: %s" % (element.type, title))
+                
+                # Add the torrent with correct size and external id.
+                d = Download()
+                d.url = url
+                d.name = title
+                d.element = element
+                d.size = getTorrentSize(description)
+                d.external_id = getTorrentExternalId(url)
+                d.type = 'de.lad1337.torrent'
+                downloads.append(d)
+
+    def _getWebResponse(self, url, params):
+        try:
+            rawResponse = requests.get(url, params=params, verify=False)
+        except:
+            log.error("Error during test connection on $s" % self)
+            return (False, 'Please check network !')
+        # Normalize and convert to ASCII
+        rawResponse = unicodedata.normalize('NFKD', rawResponse.text)
+        response = rawResponse.encode('ASCII', 'ignore')
+        # Check if there is a authkey error.
+        if response == "Bad Key":
+            return (False, 'Wrong GKS.gs AuthKey !')
+        return (True, response)
 
     def _testConnection(self, authkey):
         payload = { 'ak' : self.c.authkey }
         
-        try:
-            r = requests.get(self._baseUrlRss(), params=payload, verify=False)
-        except:
-            log.error("Error during test connection on $s" % self)
-            return (False, {}, 'Please check network!')
-        
-        response = unicodedata.normalize('NFKD', r.text).encode('ASCII', 'ignore')
-        if response == "Bad Key":
-            return (False, {}, 'Wrong AuthKey !')
-        
+        webResult = self._getWebResponse(self._baseUrlRss(), payload)
+
+        if webResult[0] == False:
+            return (False, {}, webResult[1])
         return (True, {}, 'Connection made!')
     _testConnection.args = ['authkey']
     
@@ -156,14 +169,11 @@ class GKS(Indexer):
         # 5:DVDRip/BDRip, 6:DVDRip/BDRip VOSTFR, 15:HD 720p, 
         # 16:HD 1080p, 17:Full BluRay, 19:DVDR, 21:Anime
         data["Movies"] = "5,6,15,16,17,19,21" 
-        
         # 24:eBooks
         data["Books"] = "24"        
-        
         # 29:PC Games, 30:Nintendo DS/3DS, 31:Wii, 
         # 32:Xbox 360, 34:PSP, 38:PS3
         data["Games"] = "29,30,31,32,34,38"
-        
         # 29:PC Games
         data["PC"] = "29"
         # 38:PS3
@@ -174,14 +184,15 @@ class GKS(Indexer):
         data["WiiU"] = "31"
         # 32:Xbox 360
         data["Xbox360"] = "32"
-        
         # 39 : Flac
         data["Music"] = "39"
-        
-        
-        dataWrapper = {'callFunction': 'gks_' + self.instance + '_spreadCategories',
-                       'functionData': data}
-
+        # Call the javascript function to fill fields.
+        dataWrapper = {'callFunction': 
+                            'gks_' + self.instance + '_spreadCategories',
+                       'functionData': 
+                            data
+                       }
+        # Show a message to say its done.
         return (True, dataWrapper, '%s categories loaded' % len(data))
     _gatherCategories.args = []
     
@@ -196,7 +207,11 @@ class GKS(Indexer):
                 </script>
         """
     
-    config_meta = {'plugin_desc': 'Gks.gs torrent indexer.',
-                   'plugin_buttons': {'gather_gategories': {'action': _gatherCategories, 'name': 'Get categories'},
-                                      'test_connection': {'action': _testConnection, 'name': 'Test connection'}}
-                  }
+    config_meta = {
+        'plugin_desc': 'Gks.gs torrent indexer.',
+        'plugin_buttons': 
+            {'gather_gategories': 
+                {'action': _gatherCategories, 'name': 'Get categories'},
+            'test_connection': 
+                {'action': _testConnection, 'name': 'Test connection'}}
+          }
