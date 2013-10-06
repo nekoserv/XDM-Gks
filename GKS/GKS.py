@@ -65,7 +65,7 @@ def getTorrentSize(description):
     return 0
 
 class GKS(Indexer):
-    version = "0.115"
+    version = "0.116"
     identifier = "fr.torf.gks"
     
     _config = {'authkey': '',
@@ -86,7 +86,7 @@ class GKS(Indexer):
         trackerCategories = [cat.strip() for cat in category.split(',')]
         
         downloads = []
-        terms = '+'.join(element.getSearchTerms())
+        terms = '+'.join('+'.join(element.getSearchTerms()).split(' '))
         
         for trackerCategory in trackerCategories:
             self._searchInCategory(trackerCategory, terms, element, downloads)
