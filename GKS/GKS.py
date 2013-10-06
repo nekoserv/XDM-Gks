@@ -65,7 +65,7 @@ def getTorrentSize(description):
     return 0
 
 class GKS(Indexer):
-    version = "0.114"
+    version = "0.115"
     identifier = "fr.torf.gks"
     
     _config = {'authkey': '',
@@ -80,7 +80,7 @@ class GKS(Indexer):
         category = str(self._getCategory(element))
         # category can be None
         if category is None:
-            logger.warning("No category found for %s" % element)
+            log.warning("No category found for %s" % element)
             return []
         # split into list and remove whitespcae
         trackerCategories = [cat.strip() for cat in category.split(',')]
@@ -144,7 +144,7 @@ class GKS(Indexer):
     def _getWebResponse(self, url, params):
         try:
             rawResponse = requests.get(url, params=params, verify=False)
-        except:
+        except requests.exceptions.RequestException:
             log.error("Error during test connection on $s" % self)
             return (False, 'Please check network !')
         # Normalize and convert to ASCII
@@ -156,7 +156,7 @@ class GKS(Indexer):
         return (True, response)
 
     def _testConnection(self, authkey):
-        payload = { 'ak' : self.c.authkey }
+        payload = { 'ak' : authkey }
         
         webResult = self._getWebResponse(self._baseUrlRss(), payload)
 
