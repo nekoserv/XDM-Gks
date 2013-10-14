@@ -35,7 +35,7 @@ def get_xml_text(node):
     return text.strip()
 
 def isValidItem(terms,  title):
-    for term in terms.split(' '):
+    for term in terms.split('+'):
         if not (term in title):
             return False
     return True
@@ -65,10 +65,11 @@ def getTorrentSize(description):
     return 0
 
 class GKS(Indexer):
-    version = "0.116"
+    version = "0.117"
     identifier = "fr.torf.gks"
     
     _config = {'authkey': '',
+               'comment_on_download':False 
                'enabled': True }
 
     types = ['de.lad1337.torrent']
@@ -82,14 +83,15 @@ class GKS(Indexer):
         if category is None:
             log.warning("No category found for %s" % element)
             return []
-        # split into list and remove whitespcae
+        # split into list and remove whitespace
         trackerCategories = [cat.strip() for cat in category.split(',')]
         
         downloads = []
-        terms = '+'.join('+'.join(element.getSearchTerms()).split(' '))
+        termList = [term.strip().replace(' ', '+') for term in element.getSearchTerms()]
         
-        for trackerCategory in trackerCategories:
-            self._searchInCategory(trackerCategory, terms, element, downloads)
+        for term in termList:
+            for trackerCategory in trackerCategories:
+                self._searchInCategory(trackerCategory, term, element, downloads)
                 
         if len(downloads) == 0:
             log.info("No search results for %s." % terms)
